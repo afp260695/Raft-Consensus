@@ -37,14 +37,14 @@ var serverData = [
 		ip: 'localhost',
 		port: '13337',
 		daemonPort: '7777',
-		workload: 0.0,
+		workload: 1.0,
 		status: 'up'
 	},
 	{
 		ip: 'localhost',
 		port: '13337',
 		daemonPort: '7778',
-		workload: 0.0,
+		workload: 1.0,
 		status: 'up'
 	},
 	]
@@ -52,16 +52,16 @@ var serverData = [
 var selfData = parseInt(process.argv[2]) // Example to run: node node.js 0
 var leader = {}
 var setVote = new Set()
-var timeInterval = getRandomInt((10*1000), (10*1300))
+var timeInterval = getRandomInt((10*700), (10*900))
 
 var inter = reInterval(function () {
 	if(state == 1){
-		timeInterval = getRandomInt((10*1000), (10*1300))
+		timeInterval = getRandomInt((10*700), (10*900))
 		console.log('Vote size: '+setVote.size)
 		if(setVote.size >= 3) {
 			console.log('Succes become leader')
 			sendHeartbreath()
-			timeInterval = 200
+			timeInterval = 2000
 			state = 2
 		} else {
 			console.log('Back to follower state')
@@ -74,7 +74,7 @@ var inter = reInterval(function () {
 		state = 1
 		console.log("Send election")
 		broadcastElection()
-		timeInterval = 5000
+		timeInterval = 3000
 		inter.reschedule(timeInterval)
 	} else {
 		console.log("Send hearthbreath")
@@ -84,19 +84,14 @@ var inter = reInterval(function () {
 
 }, timeInterval)
 
-var urlencodedParser = bodyParser.urlencoded({ extended: false })
+var urlencodedParser = bodyParser.json();
 
 app.post('/', urlencodedParser, function (req, res) { //respon Heartbreath
 	console.log("Follower")
-	/*******************************************************
-	*                      DISINIII!!!
-	* Mauku : saat kirim Heartbeat, kirim juga serverData nya
-	* Lalu replace yg lama dgn serverData yg baru
-	********************************************************/
-	console.log(req.body.ip)
 	leader.ip = req.body.ip
 	leader.port = req.body.port
-	// serverData = req.body.serverData
+	serverData = req.body.serverData
+	console.log(serverData);
 	inter.reschedule(timeInterval)
 	res.send('1')
 })
@@ -142,6 +137,7 @@ function sendHeartbreath() {
 		if(i != selfData){
 			let url = 'http://'+obj.ip+':'+obj.port+'/' 
 			console.log('Send to :'+url)
+			nodeData[selfData].serverData = serverData;
 			axios({
 				method: 'post',
 				url: url,
@@ -177,9 +173,10 @@ function updateServerData() {
 		})
 		.catch((err) => {
 			console.log('Error: '+err)
+			obj.workload = 1.0
+			obj.status = 'down'
 		})
 	})
-	console.log(JSON.stringify(serverData))
 }
 
 /* 
