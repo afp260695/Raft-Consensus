@@ -8,7 +8,7 @@ var _ = require('lodash')
 var app = express()
 
 var state = 0 // 0 = Follower, 1 = Candidate, 2 = Leader
-
+var selfTerm = 0
 var nodeData = [
 		{
 			ip: '127.0.0.1',
@@ -88,17 +88,22 @@ var urlencodedParser = bodyParser.json();
 
 app.post('/', urlencodedParser, function (req, res) { //respon Heartbreath
 	console.log("Follower")
-	leader.ip = req.body.ip
-	leader.port = req.body.port
-	serverData = req.body.serverData
-	console.log(serverData);
-	inter.reschedule(timeInterval)
+	if(selfTerm <= req.body.term){
+		leader.ip = req.body.ip
+		leader.port = req.body.port
+		selfTerm = req.body.term
+		serverData = req.body.serverData
+		state = 0
+		console.log(serverData)
+		inter.reschedule(timeInterval)
+	}
 	res.send('1')
 })
 
-app.get('/', function (req, res) { // respon election
-	
-	if(state == 0) {	
+app.get('/:term', function (req, res) { // respon election
+	let _term = parseInt(term)
+	if((state == 0) && (_term >= selfTerm)) {
+		selfTerm++;	
 		inter.reschedule(timeInterval)
 		res.send(String(nodeData[selfData].port))
 	} else {
@@ -137,7 +142,8 @@ function sendHeartbreath() {
 		if(i != selfData){
 			let url = 'http://'+obj.ip+':'+obj.port+'/' 
 			console.log('Send to :'+url)
-			nodeData[selfData].serverData = serverData;
+			nodeData[selfData].serverData = serverData
+			nodeData[selfData].term = selfTerm
 			axios({
 				method: 'post',
 				url: url,
@@ -186,7 +192,7 @@ function updateServerData() {
 function broadcastElection() {
 	_.forEach(nodeData, function(obj,i){
 		if(i != selfData){
-			let url = 'http://'+obj.ip+':'+obj.port+'/' 
+			let url = 'http://'+obj.ip+':'+obj.port+'/'+selfTerm
 			console.log('Send to :'+url)
 			axios({
 				method: 'get',
