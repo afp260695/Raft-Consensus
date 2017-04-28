@@ -1,3 +1,17 @@
+/************************************************
+ * File : node.js
+ * Oleh : 
+ *   Kelompok 
+ *   1. Richard Wellianto  / 13514051
+ *   2. Ahmad Fajar P.     / 13514053
+ *   3. Robert Sebastian H / 13514061
+ *
+ ************************************************/
+
+/***********************************************
+ *                  LIBRARY
+ *
+ ***********************************************/
 var express = require('express')
 var reInterval = require('reinterval')
 var bodyParser = require('body-parser')
@@ -7,7 +21,17 @@ var _ = require('lodash')
 
 var app = express()
 
-var state = 0 // 0 = Follower, 1 = Candidate, 2 = Leader
+/***********************************************
+ *             DATA DICTIONARY
+ *
+ ***********************************************/
+const FOLLOWER_STATE = 0
+const CANDIDATE_STATE = 1
+const LEADER_STATE = 2
+
+const MAJORITY = 3 // Jumlah node total = 5
+
+var state = FOLLOWER_STATE
 var selfTerm = 0
 var nodeData = [
 		{
@@ -54,29 +78,35 @@ var leader = {}
 var setVote = new Set()
 var timeInterval = getRandomInt((10*700), (10*900))
 
+/*
+ *  Timeout function for each node.
+ *
+ */
 var inter = reInterval(function () {
-	if(state == 1){
+	if(state == CANDIDATE_STATE){
 		timeInterval = getRandomInt((10*700), (10*900))
 		console.log('Vote size: '+setVote.size)
-		if(setVote.size >= 3) {
+		if(setVote.size >= MAJORITY) {
 			console.log('Succes become leader')
 			sendHeartbreath()
 			timeInterval = 2000
-			state = 2
+			state = LEADER_STATE
 		} else {
 			console.log('Back to follower state')
 			setVote = new Set()
-			state = 0
+			state = FOLLOWER_STATE
 		}
 
 		inter.reschedule(timeInterval) // reset schedule
-	} else if (state == 0) {
+
+	} else if (state == FOLLOWER_STATE) {
 		state = 1
 		console.log("Send election")
 		broadcastElection()
 		timeInterval = 3000
 		inter.reschedule(timeInterval)
-	} else {
+
+	} else { // state == LEADER_STATE
 		console.log("Send hearthbreath")
 		updateServerData()
 		sendHeartbreath()	
@@ -84,6 +114,10 @@ var inter = reInterval(function () {
 
 }, timeInterval)
 
+/***********************************************
+ *             EXPRESS.JS ROUTING
+ *
+ ***********************************************/
 var urlencodedParser = bodyParser.json();
 
 app.post('/', urlencodedParser, function (req, res) { //respon Heartbreath
@@ -93,8 +127,8 @@ app.post('/', urlencodedParser, function (req, res) { //respon Heartbreath
 		leader.port = req.body.port
 		selfTerm = req.body.term
 		serverData = req.body.serverData
-		state = 0
-		console.log(serverData)
+		state = FOLLOWER_STATE
+		// console.log(serverData)
 		inter.reschedule(timeInterval)
 	}
 	res.send('1')
@@ -102,7 +136,7 @@ app.post('/', urlencodedParser, function (req, res) { //respon Heartbreath
 
 app.get('/:term', function (req, res) { // respon election
 	let _term = parseInt(term)
-	if((state == 0) && (_term >= selfTerm)) {
+	if((state == FOLLOWER_STATE) && (_term >= selfTerm)) {
 		selfTerm++;	
 		inter.reschedule(timeInterval)
 		res.send(String(nodeData[selfData].port))
@@ -137,6 +171,10 @@ function getRandomInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min
 }
 
+/* 
+ * Fungsi SendHeartbeat dipanggil oleh Leader
+ * untuk broadcasting data ke setiap node
+ */
 function sendHeartbreath() {
 	_.forEach(nodeData, function(obj,i){
 		if(i != selfData){
@@ -187,7 +225,7 @@ function updateServerData() {
 
 /* 
  * Fungsi BroadcastElection dipanggil oleh Candidate
- * 
+ * untuk memulai proses voting
  */
 function broadcastElection() {
 	_.forEach(nodeData, function(obj,i){
