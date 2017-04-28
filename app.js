@@ -1,7 +1,7 @@
 /************************************************
  * File : node.js
  * Oleh : 
- *   Kelompok 
+ *   Kelompok Kucing_Gundhul
  *   1. Richard Wellianto  / 13514051
  *   2. Ahmad Fajar P.     / 13514053
  *   3. Robert Sebastian H / 13514061
